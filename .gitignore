@@ -1,0 +1,14 @@
+.env
+.venv/
+.tools/
+.build/
+__pycache__/
+*.pyc
+*.log
+uploads/
+public/audio/
+*.wav
+*.raw
+*.mp3
+*.m4a
+*.tmp
