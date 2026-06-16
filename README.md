@@ -90,7 +90,8 @@ Documentation/
   Wiring.md                   Hardware wiring table
   Project Notes.md            Interaction/UI notes
   Troubleshooting.md          Common fixes
-  Submission Procedure.md     Submission checklist
+  AI_Desk_Assistant_Submission_Document.docx
+                              Submit-ready project documentation
   Report/                     Project report and equipment images
 ```
 
