@@ -1,70 +1,145 @@
-# Smart Voice Assistant
+# AI Desk Assistant
 
-This folder is the cleaned final copy of the ESP32-S3 Smart Voice Assistant project.
+An ESP32-S3 based smart voice assistant with a round TFT-style interface, microphone input, speaker output, touch/button controls, and a local AI bridge server. The device records short voice commands, sends them to a PC server, uses an Android-hosted OpenAI-compatible AI service for speech-to-text, chat, and text-to-speech, then plays the response through the desk assistant.
 
-## Folder Map
+## What It Does
+
+- Shows a small animated desk UI on a 240x240 ST7789 display.
+- Cycles through clock, weather, system, and AI pages with touch input.
+- Uses a button-driven voice flow:
+  1. First press enters AI mode.
+  2. Second press starts recording.
+  3. Third press stops recording and sends the voice request.
+- Sends recorded audio to a local FastAPI server.
+- The server calls Tool Neuron or another OpenAI-compatible backend for STT, chat, and TTS.
+- The ESP32-S3 receives the transcript/response/audio URL and plays an 8 kHz WAV response.
+- Includes setup-mode support through an ESP32 access point and setup page.
+
+## Hardware
+
+| Part | Role |
+|---|---|
+| ESP32-S3 | Main controller for UI, Wi-Fi, mic sampling, and speaker PWM output |
+| ST7789 240x240 TFT | Circular/square-ish animated display interface |
+| MAX4466 microphone module | Voice input |
+| TTP223 touch sensor | Page cycling |
+| Push button | AI mode and recording control |
+| HW-104 amplifier | Speaker amplifier using right-channel input |
+| XL6009 booster | Amplifier power supply |
+| Speaker | Voice playback |
+| Windows PC | Runs the local AI bridge server |
+| Android phone | Runs Tool Neuron / OpenAI-compatible AI endpoints |
+
+## Pin Map
+
+| ESP32-S3 Pin | Connected Device |
+|---|---|
+| GPIO1 | MAX4466 microphone analog output |
+| GPIO2 | Test/status LED |
+| GPIO4 | HW-104 `R` audio input |
+| GPIO5 | TTP223 touch output |
+| GPIO6 | Push button |
+| GPIO9 | TFT DC |
+| GPIO11 | TFT MOSI |
+| GPIO12 | TFT SCK |
+| GND | Shared ground for ESP32, amplifier, booster, and sensors |
+
+More wiring detail is in [`Documentation/Wiring.md`](Documentation/Wiring.md).
+
+## Software Architecture
 
 ```text
-IoT_AI_Desk_Buddy
-├─ README.md
-├─ AI Desk Assistant
-│  └─ AI Desk Assistant.ino
-├─ AI Server
-│  ├─ server.py
-│  ├─ requirements.txt
-│  ├─ README.md
-│  └─ .env.example
-├─ Setup Guide
-│  ├─ README.md
-│  ├─ Configure-Server.ps1
-│  ├─ Start-Server.ps1
-│  ├─ Stop-Server.ps1
-│  ├─ Test-AI.ps1
-│  ├─ Build-Firmware.ps1
-│  └─ Flash-Firmware.ps1
-└─ Documentation
-   ├─ Wiring.md
-   ├─ Project Notes.md
-   ├─ Troubleshooting.md
-   ├─ Submission Procedure.md
-   └─ Report
-      ├─ ESP32_AI_Voice_Assistant_Report.docx
-      ├─ ESP32_AI_Voice_Assistant_Report.pdf
-      ├─ SMART_VOICE_ASSISTANT_PROJECT_REPORT.md
-      └─ report_assets
+Voice input
+   |
+   v
+ESP32-S3 firmware
+   |
+   | raw 8-bit audio over HTTP
+   v
+Local FastAPI server on Windows
+   |
+   | OpenAI-compatible API calls
+   v
+Android Tool Neuron AI service
+   |
+   v
+STT -> chat response -> TTS WAV
+   |
+   v
+ESP32-S3 downloads and plays audio
 ```
 
-## What Is Preserved
+The ESP32-S3 handles the embedded experience: UI pages, setup portal, recording, upload, response display, and audio playback. The Windows server handles the heavier API work and audio conversion. The Android phone hosts the local AI models through an OpenAI-compatible `/v1` API.
 
-- Final ESP32-S3 Arduino sketch: `AI Desk Assistant\AI Desk Assistant.ino`
-- Clean local AI server source: `AI Server\server.py`
-- Server dependency list: `AI Server\requirements.txt`
-- Token-free example configuration: `AI Server\.env.example`
-- Setup helper scripts under `Setup Guide`
-- Final project report files under `Documentation\Report`
-- Equipment images used by the report under `Documentation\Report\report_assets`
+## Repository Layout
 
-## What Was Removed
+```text
+AI Desk Assistant/
+  AI Desk Assistant.ino       Arduino firmware
 
-The cleanup intentionally removed private, generated, runtime, and old experiment files:
+AI Server/
+  server.py                   FastAPI bridge server
+  requirements.txt            Python dependencies
+  .env.example                Example server config
 
-- Server `.env` files and private credentials
-- Uploaded/request audio and generated response audio
-- Server logs and Python cache folders
-- Python virtual environments such as `.venv`
-- Arduino/tool cache folders such as `.tools` and `.build`
-- Old `archive`, `assets`, `refs`, `report_work`, `_private`, `tools`, test folders, and duplicate root documents
+Setup Guide/
+  README.md                   Setup and run instructions
+  *.ps1                       Windows helper scripts
 
-## Reviving The Project Later
+Documentation/
+  Wiring.md                   Hardware wiring table
+  Project Notes.md            Interaction/UI notes
+  Troubleshooting.md          Common fixes
+  Submission Procedure.md     Submission checklist
+  Report/                     Project report and equipment images
+```
 
-This copy is clean for submission/storage. To run it again later, reinstall the missing tools first:
+## Quick Start
 
-1. Install Python 3.11+.
-2. From the root folder, run `Setup Guide\Configure-Server.ps1` and fill in a new local AI server URL/API key if needed.
-3. Install server packages with `python -m pip install -r "AI Server\requirements.txt"`.
-4. Run `Setup Guide\Start-Server.ps1`.
-5. Install Arduino IDE or Arduino CLI and the ESP32 board package.
-6. Open `AI Desk Assistant\AI Desk Assistant.ino` in Arduino IDE, or use the build/flash scripts after installing `arduino-cli`.
+1. Install Python 3.11+ on the Windows PC.
+2. Install the server dependencies:
 
-No private phone/server token is stored in this folder.
+   ```powershell
+   python -m pip install -r "AI Server\requirements.txt"
+   ```
 
+3. Copy `AI Server\.env.example` to `AI Server\.env` and fill in the phone AI server URL/model values.
+4. Start the PC server:
+
+   ```powershell
+   .\Setup Guide\Start-Server.ps1
+   ```
+
+5. Install Arduino IDE or Arduino CLI with ESP32 board support.
+6. Open `AI Desk Assistant\AI Desk Assistant.ino`, select the ESP32-S3 board/port, and upload.
+7. If Wi-Fi/server details need to be changed, enter setup mode on the device and use the `AI_Buddy_Setup` access point.
+
+Detailed setup steps are in [`Setup Guide/README.md`](Setup%20Guide/README.md).
+
+## Server Configuration
+
+The server reads settings from `AI Server\.env`. Start from the example file:
+
+```env
+TOOL_NEURON_BASE_URL=http://PHONE-IP:11434/v1
+TOOL_NEURON_API_KEY=
+TOOL_NEURON_CHAT_MODEL=
+TOOL_NEURON_STT_MODEL=
+TOOL_NEURON_TTS_MODEL=
+TOOL_NEURON_TTS_VOICE=amy
+PUBLIC_BASE_URL=http://PC-IP:3000
+PORT=3000
+```
+
+`PUBLIC_BASE_URL` should be reachable by the ESP32-S3 on the same network. `TOOL_NEURON_BASE_URL` should point to the Android AI service's OpenAI-compatible `/v1` endpoint.
+
+## Project Report
+
+The prepared report is available in:
+
+- [`Documentation/Report/ESP32_AI_Voice_Assistant_Report.docx`](Documentation/Report/ESP32_AI_Voice_Assistant_Report.docx)
+- [`Documentation/Report/ESP32_AI_Voice_Assistant_Report.pdf`](Documentation/Report/ESP32_AI_Voice_Assistant_Report.pdf)
+
+## Notes
+
+This repository does not include private runtime credentials. Create your own `.env` locally when running the server.
